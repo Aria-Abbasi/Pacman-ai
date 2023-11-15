@@ -14,6 +14,7 @@ You can run the game by executing the `pacman.py` script with Python 3. Make sur
 
 ```bash
 python3 pacman.py
+```
 
 ## Game Rules
 
