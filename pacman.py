@@ -127,6 +127,9 @@ def move_ghosts(game, directions):
 
         if not is_valid_position(game, new_position):
             continue
+        
+        if game.field[new_position[0]][new_position[1]] in [Game.GHOST, Game.GHOST_FOOD]:
+            continue
 
         if game.field[ghost_position[0]][ghost_position[1]] == Game.GHOST_FOOD:
             game.field[ghost_position[0]][ghost_position[1]] = Game.FOOD
@@ -204,18 +207,18 @@ def evaluate_game(game):
     return game.score - len_shortest_path_to_food(game)
 
 
-def minimax(game, depth, maximizingPlayer):
+def minimax(game, depth, is_pacman):
     if depth == 0 or game.won is not None:
         return evaluate_game(game), None
 
-    if maximizingPlayer:
+    if is_pacman:
         maxEval = float('-inf')
         best_move = None
         all_moves = {}
         for direction in Game.VALID_DIRECTIONS:
-            new_game = move(copy.deepcopy(game), direction, True)
+            new_game = move(copy.deepcopy(game), direction, is_pacman=True)
             if new_game is not None:
-                eval, _ = minimax(new_game, depth - 1, False)
+                eval, _ = minimax(new_game, depth - 1, is_pacman=False)
                 all_moves[direction] = eval
                 if eval > maxEval:
                     maxEval = eval
@@ -226,9 +229,9 @@ def minimax(game, depth, maximizingPlayer):
     else:
         minEval = float('inf')
         for directions in get_permutations(Game.VALID_DIRECTIONS, Game.NUMBER_OF_GHOSTS):
-            new_game = move(copy.deepcopy(game), directions, False)
+            new_game = move(copy.deepcopy(game), directions, is_pacman=False)
             if new_game is not None:
-                eval, _ = minimax(new_game, depth - 1, True)
+                eval, _ = minimax(new_game, depth - 1, is_pacman=True)
                 if eval < minEval:
                     minEval = eval
         return minEval, None
@@ -238,7 +241,7 @@ def play():
     game = initialize_game()
     while game.won is None:
         print_ground(game)
-        _, direction = minimax(game, 2, True)
+        _, direction = minimax(game, 2, is_pacman=True)
         move(game, direction, is_pacman=True)
         directions = [random.choice(Game.VALID_DIRECTIONS)
                       for _ in range(Game.NUMBER_OF_GHOSTS)]
