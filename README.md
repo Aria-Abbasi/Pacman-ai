@@ -32,3 +32,7 @@ The game is implemented using a simple grid system, where each cell in the grid 
 - Add more ghosts and different types of food.
 - Implement different strategies for the ghosts to make the game more challenging.
 - Improve the game visualization.
+
+## Updates
+- The code has been refactored into a Pacman class for better organization and encapsulation. All related functions are now methods of the Pacman class.
+- Alpha-beta pruning has been added to the minimax function to improve the game AI.
