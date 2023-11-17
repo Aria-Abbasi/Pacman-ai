@@ -6,7 +6,6 @@ import random
 
 class Game:
     VALID_DIRECTIONS = ['u', 'd', 'l', 'r']
-    NUMBER_OF_GHOSTS = 2
     PACMAN = 'P'
     EMPTY = ' '
     FOOD = '.'
@@ -29,6 +28,7 @@ class Game:
                     self.pacman_position = (i, j)
                 elif cell == self.GHOST or cell == self.GHOST_FOOD:
                     self.ghost_positions.append((i, j))
+        self.NUMBER_OF_GHOSTS = len(self.ghost_positions)
 
 
 def initialize_game():
@@ -83,7 +83,7 @@ def print_ground(game):
     # print()
 
 
-def win_or_lost_or_nothing(game):
+def check_endgame(game):
     flat_ground = [item for sublist in game.field for item in sublist]
 
     food_count = flat_ground.count(Game.FOOD)
@@ -94,7 +94,7 @@ def win_or_lost_or_nothing(game):
 
     if food_count == 0:
         game.won = True
-    elif ghost_count != Game.NUMBER_OF_GHOSTS or pacman_count != 1:
+    elif ghost_count != game.NUMBER_OF_GHOSTS or pacman_count != 1:
         game.won = False
 
 
@@ -172,18 +172,19 @@ def move(game, direction, is_pacman_turn):
         move_pacman(game, direction)
     else:
         move_ghosts(game, direction)
-    win_or_lost_or_nothing(game)
+    check_endgame(game)
     return game
 
 
-def len_shortest_path_to_food(game):
-    x, y = game.pacman_position
+def len_shortest_path_to_food(game, x=None, y=None):
+    if x is None or y is None:
+        x, y = game.pacman_position
     field = game.field
     queue = [(x, y, 0)]
     visited = set()
     while len(queue) > 0:
         x, y, distance = queue.pop(0)
-        if field[x][y] == Game.FOOD:
+        if field[x][y] == Game.FOOD and distance > 0:
             return distance
         if (x, y) not in visited:
             visited.add((x, y))
@@ -197,34 +198,34 @@ def len_shortest_path_to_food(game):
                 queue.append((x, y + 1, distance + 1))
     return len(game.field) * len(game.field[0])
 
-def neighbors_have_food(game, x, y):
+def neighbors_have_food_or_pacman(game, x, y):
     field = game.field
-    if is_valid_position(game, (x - 1, y)) and field[x - 1][y] == Game.FOOD:
+    if is_valid_position(game, (x - 1, y)) and field[x - 1][y] in [Game.FOOD, Game.PACMAN]:
         return True
-    if is_valid_position(game, (x + 1, y)) and field[x + 1][y] == Game.FOOD:
+    if is_valid_position(game, (x + 1, y)) and field[x + 1][y] in [Game.FOOD, Game.PACMAN]:
         return True
-    if is_valid_position(game, (x, y - 1)) and field[x][y - 1] == Game.FOOD:
+    if is_valid_position(game, (x, y - 1)) and field[x][y - 1] in [Game.FOOD, Game.PACMAN]:
         return True
-    if is_valid_position(game, (x, y + 1)) and field[x][y + 1] == Game.FOOD:
+    if is_valid_position(game, (x, y + 1)) and field[x][y + 1] in [Game.FOOD, Game.PACMAN]:
         return True
     return False
 
-def count_single_foods(game):
+def penalty_single_foods(game):
     field = game.field
-    count = 0
+    penalty = 0
     for i in range(len(field)):
         for j in range(len(field[0])):
-            if field[i][j] == Game.FOOD and not neighbors_have_food(game, i, j):
-                count += 1
-    return count
+            if field[i][j] == Game.FOOD and not neighbors_have_food_or_pacman(game, i, j):
+                penalty += len_shortest_path_to_food(game, i, j) + 10
+    return penalty
 
 
 def evaluate_game(game):
     if game.won:
-        return float('inf')
+        return 100 * game.score
     elif game.won is not None:
         return float('-inf')
-    return game.score - len_shortest_path_to_food(game) - 5 * count_single_foods(game)
+    return game.score - len_shortest_path_to_food(game) - penalty_single_foods(game)
 
 
 def minimax(game, depth, alpha, beta, is_pacman_turn):
@@ -234,10 +235,12 @@ def minimax(game, depth, alpha, beta, is_pacman_turn):
     if is_pacman_turn:
         maxEval = float('-inf')
         best_moves = []
+        all_moves = {}
         for direction in Game.VALID_DIRECTIONS:
             new_game = move(copy.deepcopy(game), direction, is_pacman_turn=True)
             if new_game is not None:
                 eval, _ = minimax(new_game, depth - 1, alpha, beta, is_pacman_turn=False)
+                all_moves[direction] = eval
                 if eval > maxEval:
                     maxEval = eval
                     best_moves = [direction]
@@ -246,10 +249,12 @@ def minimax(game, depth, alpha, beta, is_pacman_turn):
                 alpha = max(alpha, eval)
                 if beta <= alpha:
                     break
+        if depth == 4:
+            print(all_moves)
         return maxEval, random.choice(best_moves) if best_moves else None
     else:
         minEval = float('inf')
-        for directions in get_permutations(Game.VALID_DIRECTIONS, Game.NUMBER_OF_GHOSTS):
+        for directions in get_permutations(Game.VALID_DIRECTIONS, game.NUMBER_OF_GHOSTS):
             new_game = move(copy.deepcopy(game), directions, is_pacman_turn=False)
             if new_game is not None:
                 eval, _ = minimax(new_game, depth - 1, alpha, beta, is_pacman_turn=True)
@@ -267,9 +272,9 @@ def play():
         _, direction = minimax(game, 4, float('-inf'), float('inf'), is_pacman_turn=True)
         move(game, direction, is_pacman_turn=True)
         directions = [random.choice(Game.VALID_DIRECTIONS)
-                      for _ in range(Game.NUMBER_OF_GHOSTS)]
+                      for _ in range(game.NUMBER_OF_GHOSTS)]
         move(game, directions, is_pacman_turn=False)
-        win_or_lost_or_nothing(game)
+        check_endgame(game)
     if game.won == True:
         print("You won!")
     else:
