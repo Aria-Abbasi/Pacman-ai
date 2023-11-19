@@ -11,11 +11,11 @@ def get_permutations(lst, n):
 class Pacman:
     VALID_DIRECTIONS = ['u', 'd', 'l', 'r']
     DIRECTION_MAP = {
-            'u': (-1, 0),
-            'd': (1, 0),
-            'l': (0, -1),
-            'r': (0, 1)
-        }
+        'u': (-1, 0),
+        'd': (1, 0),
+        'l': (0, -1),
+        'r': (0, 1)
+    }
     PACMAN = 'P'
     EMPTY = ' '
     FOOD = '.'
@@ -24,6 +24,14 @@ class Pacman:
     GHOST = 'G'
     FOOD_REWARD = 10
     MOVE_PENALTY = 1
+    ELEMENT_TO_NUMBER = {
+        EMPTY: 0,
+        PACMAN: 1,
+        GHOST: 2,
+        FOOD: 3,
+        GHOST_FOOD: 2,
+        WALL: 8,
+    }
 
     def __init__(self, field, depth):
         plt.ion()
@@ -42,28 +50,15 @@ class Pacman:
                     self.pacman_position = (i, j)
                 elif cell == self.GHOST or cell == self.GHOST_FOOD:
                     self.ghost_positions.append((i, j))
-        self.NUMBER_OF_GHOSTS = len(self.ghost_positions)
-
-
 
     def print_ground(self):
-        element_to_number = {
-            Pacman.EMPTY: 0,
-            Pacman.PACMAN: 1,
-            Pacman.GHOST: 2,
-            Pacman.FOOD: 3,
-            Pacman.GHOST_FOOD: 2,
-            Pacman.WALL: 8,
-        }
-
-        field = [[element_to_number[element]
-                for element in row] for row in self.field]
+        field = [[self.ELEMENT_TO_NUMBER[element]
+                  for element in row] for row in self.field]
 
         plt.imshow(field, cmap='Pastel1')
         plt.title(f'Score: {self.score}')
         plt.draw()
         plt.pause(0.0001)
-
 
     def check_endgame(self):
         flat_ground = [item for sublist in self.field for item in sublist]
@@ -76,79 +71,71 @@ class Pacman:
 
         if food_count == 0:
             self.won = True
-        elif ghost_count != self.NUMBER_OF_GHOSTS or pacman_count != 1:
+        elif ghost_count != len(self.ghost_positions) or pacman_count != 1:
             self.won = False
 
-
     def move_pacman(self, direction):
-        pacman_position = self.pacman_position
-
-        if pacman_position is None:
+        if self.pacman_position is None:
             return False
 
-        new_position = self.get_new_position(pacman_position, direction)
+        new_position = self.get_new_position(self.pacman_position, direction)
         self.score -= Pacman.MOVE_PENALTY
 
         if not self.is_valid_position(new_position):
             return False
 
-        if self.field[new_position[0]][new_position[1]] == Pacman.FOOD:
+        new_cell = self.field[new_position[0]][new_position[1]]
+        if new_cell == Pacman.FOOD:
             self.score += Pacman.FOOD_REWARD
 
+        self.field[self.pacman_position[0]
+                   ][self.pacman_position[1]] = Pacman.EMPTY
         self.field[new_position[0]][new_position[1]] = Pacman.PACMAN
-        self.field[pacman_position[0]][pacman_position[1]] = Pacman.EMPTY
         self.pacman_position = new_position
 
         return True
 
-
     def move_ghosts(self, directions):
         new_ghost_positions = []
         for index, ghost_position in enumerate(self.ghost_positions):
-            new_position = self.get_new_position(ghost_position, directions[index])
+            new_position = self.get_new_position(
+                ghost_position, directions[index])
 
             if not self.is_valid_position(new_position):
                 new_ghost_positions.append(ghost_position)
                 continue
 
-            current_ghost_cell = self.field[ghost_position[0]][ghost_position[1]]
+            current_ghost_cell = self.field[ghost_position[0]
+                                            ][ghost_position[1]]
             new_cell = self.field[new_position[0]][new_position[1]]
 
             if new_cell in [Pacman.GHOST, Pacman.GHOST_FOOD]:
                 new_ghost_positions.append(ghost_position)
                 continue
 
-            self.field[ghost_position[0]][ghost_position[1]] = Pacman.FOOD if current_ghost_cell == Pacman.GHOST_FOOD else Pacman.EMPTY
-            self.field[new_position[0]][new_position[1]] = Pacman.GHOST_FOOD if new_cell == Pacman.FOOD else Pacman.GHOST
+            self.field[ghost_position[0]][ghost_position[1]
+                                          ] = Pacman.FOOD if current_ghost_cell == Pacman.GHOST_FOOD else Pacman.EMPTY
+            self.field[new_position[0]][new_position[1]
+                                        ] = Pacman.GHOST_FOOD if new_cell == Pacman.FOOD else Pacman.GHOST
 
             new_ghost_positions.append(new_position)
 
         self.ghost_positions = new_ghost_positions
 
-
-    def get_new_position(self, position, direction):      
+    def get_new_position(self, position, direction):
         dx, dy = Pacman.DIRECTION_MAP.get(direction, (0, 0))
         x, y = position
         return x + dx, y + dy
 
-
     def is_valid_position(self, position):
         x, y = position
-        if x < 0 or y < 0 or x >= len(self.field) or y >= len(self.field[0]):
-            return False
-        if self.field[x][y] == Pacman.WALL:
-            return False
-        return True
-
+        return 0 <= x < len(self.field) and 0 <= y < len(self.field[0]) and self.field[x][y] != Pacman.WALL
 
     def move(self, direction, is_pacman_turn):
-        if is_pacman_turn:
-            self.move_pacman(direction)
-        else:
-            self.move_ghosts(direction)
+        self.move_pacman(
+            direction) if is_pacman_turn else self.move_ghosts(direction)
         self.check_endgame()
         return self
-
 
     def len_shortest_path_to_food(self, x=None, y=None):
         if x is None or y is None:
@@ -156,21 +143,18 @@ class Pacman:
         field = self.field
         queue = [(x, y, 0)]
         visited = set()
-        while len(queue) > 0:
+        while queue:
             x, y, distance = queue.pop(0)
             if field[x][y] == Pacman.FOOD and distance > 0:
                 return distance
             if (x, y) not in visited:
                 visited.add((x, y))
-                if self.is_valid_position((x - 1, y)):
-                    queue.append((x - 1, y, distance + 1))
-                if self.is_valid_position((x + 1, y)):
-                    queue.append((x + 1, y, distance + 1))
-                if self.is_valid_position((x, y - 1)):
-                    queue.append((x, y - 1, distance + 1))
-                if self.is_valid_position((x, y + 1)):
-                    queue.append((x, y + 1, distance + 1))
-        return len(self.field) * len(self.field[0])
+                for dx, dy in self.DIRECTION_MAP.values():
+                    new_position = (x + dx, y + dy)
+                    if self.is_valid_position(new_position):
+                        queue.append((*new_position, distance + 1))
+
+        return len(field) * len(field[0])
 
     def neighbors_have_food_or_pacman(self, x, y):
         field = self.field
@@ -193,14 +177,12 @@ class Pacman:
                     penalty += self.len_shortest_path_to_food(i, j) + 10
         return penalty
 
-
     def evaluate_game(self):
         if self.won:
             return 100 * self.score
         elif self.won is not None:
             return float('-inf')
         return self.score - self.len_shortest_path_to_food() - self.penalty_single_foods()
-
 
     def minimax(self, depth, alpha, beta, is_pacman_turn):
         if depth == 0 or self.won is not None:
@@ -214,7 +196,8 @@ class Pacman:
                 new_game = copy.deepcopy(self)
                 new_game.move(direction, is_pacman_turn=True)
                 if new_game is not None:
-                    eval, _ = new_game.minimax(depth - 1, alpha, beta, is_pacman_turn=False)
+                    eval, _ = new_game.minimax(
+                        depth - 1, alpha, beta, is_pacman_turn=False)
                     all_moves[direction] = eval
                     if eval > maxEval:
                         maxEval = eval
@@ -229,11 +212,12 @@ class Pacman:
             return maxEval, random.choice(best_moves) if best_moves else None
         else:
             minEval = float('inf')
-            for directions in get_permutations(Pacman.VALID_DIRECTIONS, self.NUMBER_OF_GHOSTS):
+            for directions in get_permutations(Pacman.VALID_DIRECTIONS, len(self.ghost_positions)):
                 new_game = copy.deepcopy(self)
                 new_game.move(directions, is_pacman_turn=False)
                 if new_game is not None:
-                    eval, _ = new_game.minimax(depth - 1, alpha, beta, is_pacman_turn=True)
+                    eval, _ = new_game.minimax(
+                        depth - 1, alpha, beta, is_pacman_turn=True)
                     if eval < minEval:
                         minEval = eval
                     beta = min(beta, eval)
@@ -241,14 +225,14 @@ class Pacman:
                         break
             return minEval, None
 
-
     def play(self):
         while self.won is None:
             self.print_ground()
-            _, direction = self.minimax(self.depth, float('-inf'), float('inf'), is_pacman_turn=True)
+            _, direction = self.minimax(self.depth, float(
+                '-inf'), float('inf'), is_pacman_turn=True)
             self.move(direction, is_pacman_turn=True)
             directions = [random.choice(Pacman.VALID_DIRECTIONS)
-                        for _ in range(self.NUMBER_OF_GHOSTS)]
+                          for _ in range(len(self.ghost_positions))]
             self.move(directions, is_pacman_turn=False)
             self.check_endgame()
         if self.won == True:
